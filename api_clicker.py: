@@ -1,0 +1,55 @@
+import subprocess
+import time
+import cv2
+import numpy as np
+
+def capture_screen():
+    # Sử dụng Termux-API để chụp màn hình cực kỳ nhanh gọn không cần ADB
+    subprocess.run(["termux-screenshot", "screen.png"])
+
+def click_on_device(x, y):
+    # Dùng quyền Root để tap (Nếu dùng Shizuku, thay 'su -c' bằng 'rish')
+    subprocess.run(["su", "-c", f"input tap {x} {y}"])
+    print(f"Đã click tại tọa độ: X={x}, Y={y}")
+
+def find_and_click_image(template_path, threshold=0.8):
+    print("Đang chụp màn hình qua Termux-API...")
+    capture_screen()
+    time.sleep(1) # Chờ hệ thống ghi xong file ảnh
+    
+    screen = cv2.imread("screen.png")
+    template = cv2.imread(template_path)
+    
+    if screen is None or template is None:
+        print("Lỗi: Không đọc được ảnh màn hình hoặc ảnh mẫu.")
+        return False
+
+    h, w = template.shape[:2]
+    
+    # Xử lý nhận diện hình ảnh (Template Matching)
+    result = cv2.matchTemplate(screen, template, cv2.TM_CCOEFF_NORMED)
+    _, max_val, _, max_loc = cv2.minMaxLoc(result)
+    
+    print(f"Độ chính xác (Confidence): {max_val:.2f}")
+
+    if max_val >= threshold:
+        center_x = max_loc[0] + w // 2
+        center_y = max_loc[1] + h // 2
+        click_on_device(center_x, center_y)
+        return True
+    else:
+        print("Không tìm thấy hình ảnh.")
+        return False
+
+if __name__ == "__main__":
+    # Đặt file ảnh mẫu 'button.png' chung thư mục với script
+    IMAGE_TO_FIND = "button.png"  
+    
+    print("Bắt đầu tool click ảnh dùng Termux-API...")
+    for i in range(3):
+        print(f"\nLần thử {i+1}:")
+        if find_and_click_image(IMAGE_TO_FIND, threshold=0.8):
+            print("Thành công!")
+            break
+        time.sleep(2)
+
