@@ -1,4 +1,136 @@
-o                errors.append(f"{file_name}: {str(e)}")
+import os
+import sys
+import threading
+import json
+import base64
+import urllib.request
+import urllib.error
+import tkinter as tk
+from tkinter import messagebox, scrolledtext, filedialog
+from http.server import HTTPServer, BaseHTTPRequestHandler
+
+# 1. Cấu hình biến môi trường hiển thị qua X11 cho Termux / Samsung DeX
+os.environ["DISPLAY"] = ":0"
+
+# --- CẤU HÌNH GITHUB ---
+GITHUB_TOKEN = "ghp_" + "bV4gdc0mSQNLKh3MMDhHuTxtLKI5lN3xsmSu"
+GITHUB_REPO = "huyxaa00-eng/my_project"
+GITHUB_BRANCH = "main"
+
+# --- MÀU SẮC GIAO DIỆN CHUYÊN NGHIỆP ---
+BG_COLOR = "#1e1e2e"          # Nền chính (Dark Modern)
+PANEL_COLOR = "#2a2a3c"       # Nền phụ / Khung
+TEXT_COLOR = "#cdd6f4"        # Màu chữ chính
+ACCENT_GREEN = "#a6e3a1"      # Nút chạy / Thành công
+ACCENT_BLUE = "#89b4fa"       # Nút danh sách / Thông tin
+ACCENT_ORANGE = "#fab387"     # Nút soạn code
+ACCENT_PURPLE = "#cba6f7"     # Nút tải file máy
+ACCENT_CYAN = "#89dceb"       # Nút đồng bộ
+ACCENT_RED = "#f38ba8"        # Nút xóa
+BTN_TEXT = "#11111b"          # Chữ trên nút màu
+
+# --- KHU VỰC XỬ LÝ TÁC VỤ / AUTO GAME ---
+def xu_ly_auto_game():
+    print("🎮 Đang chạy kịch bản auto game...")
+    return "Auto game đã thực thi thành công!"
+
+# --- HÀM LẤY DANH SÁCH FILE TRÊN GITHUB ---
+def get_github_file_list():
+    url = f"https://api.github.com/repos/{GITHUB_REPO}/git/trees/{GITHUB_BRANCH}?recursive=1"
+    headers = {
+        "Authorization": f"token {GITHUB_TOKEN}",
+        "User-Agent": "Termux-Python"
+    }
+    try:
+        req = urllib.request.Request(url, headers=headers)
+        with urllib.request.urlopen(req) as response:
+            if response.status == 200:
+                data = json.loads(response.read().decode('utf-8'))
+                file_list = []
+                for item in data.get("tree", []):
+                    if item["type"] == "blob":
+                        file_list.append(item["path"])
+                return True, file_list
+    except urllib.error.HTTPError as e:
+        return False, f"Lỗi GitHub API: {e.read().decode('utf-8')}"
+    except Exception as e:
+        return False, f"Lỗi kết nối: {str(e)}"
+    
+    return False, "Không thể lấy danh sách file."
+
+# --- HÀM TẢI NỘI DUNG MỘT FILE TỪ GITHUB ĐỂ CHẠY ---
+def fetch_code_from_github(file_path_on_repo):
+    url = f"https://raw.githubusercontent.com/{GITHUB_REPO}/{GITHUB_BRANCH}/{file_path_on_repo}"
+    headers = {"User-Agent": "Termux-Python"}
+    try:
+        req = urllib.request.Request(url, headers=headers)
+        with urllib.request.urlopen(req) as response:
+            if response.status == 200:
+                return True, response.read().decode('utf-8')
+    except Exception as e:
+        return False, str(e)
+    return False, "Không thể tải file từ GitHub."
+
+# --- HÀM TẢI / CẬP NHẬT FILE LÊN GITHUB ---
+def upload_file_to_github(file_path_on_repo, python_code_content):
+    url = f"https://api.github.com/repos/{GITHUB_REPO}/contents/{file_path_on_repo}"
+    
+    encoded_content = base64.b64encode(python_code_content.encode('utf-8')).decode('utf-8')
+    
+    sha = None
+    try:
+        req_check = urllib.request.Request(url, headers={"Authorization": f"token {GITHUB_TOKEN}", "User-Agent": "Termux-Python"})
+        with urllib.request.urlopen(req_check) as response:
+            data = json.loads(response.read().decode('utf-8'))
+            sha = data.get('sha')
+    except Exception:
+        pass
+
+    payload = {
+        "message": f"Sync/Update {file_path_on_repo} via Termux Professional System",
+        "content": encoded_content,
+        "branch": GITHUB_BRANCH
+    }
+    if sha:
+        payload["sha"] = sha
+
+    data_bytes = json.dumps(payload).encode('utf-8')
+    req = urllib.request.Request(url, data=data_bytes, headers={
+        "Authorization": f"token {GITHUB_TOKEN}",
+        "Content-Type": "application/json",
+        "User-Agent": "Termux-Python"
+    }, method="PUT")
+
+    try:
+        with urllib.request.urlopen(req) as response:
+            if response.status in [200, 201]:
+                return True, f"Đồng bộ file {file_path_on_repo} thành công!"
+    except urllib.error.HTTPError as e:
+        error_message = e.read().decode('utf-8')
+        return False, f"Lỗi GitHub API ({file_path_on_repo}): {error_message}"
+    except Exception as e:
+        return False, f"Lỗi kết nối ({file_path_on_repo}): {str(e)}"
+    
+    return False, "Không rõ lỗi."
+
+# --- HÀM ĐỒNG BỘ TOÀN BỘ FILE .PY TỪ THƯ MỤC MÁY LÊN GITHUB ---
+def sync_local_folder_to_github():
+    synced_files = []
+    errors = []
+    
+    for file_name in os.listdir('.'):
+        if file_name.endswith('.py') and os.path.isfile(file_name):
+            try:
+                with open(file_name, 'r', encoding='utf-8') as f:
+                    content = f.read()
+                
+                success, msg = upload_file_to_github(file_name, content)
+                if success:
+                    synced_files.append(file_name)
+                else:
+                    errors.append(f"{file_name}: {msg}")
+            except Exception as e:
+                errors.append(file_name + ": " + str(e))
                 
     return synced_files, errors
 
@@ -82,51 +214,166 @@ class MainApplication:
     def __init__(self, root):
         self.root = root
         self.root.title("Termux Auto & GitHub Control Center")
-        self.root.geometry("480x620")
+        self.root.geometry("480x660")
         self.root.config(bg=BG_COLOR)
         self.root.resizable(False, False)
         
+        # Danh sách lưu các nút động từ GitHub
+        self.custom_buttons = []
+        self.load_custom_buttons_config()
+
         self.create_dashboard_screen()
 
     def clear_window(self):
         for widget in self.root.winfo_children():
             widget.destroy()
 
+    def load_custom_buttons_config(self):
+        # Đọc danh sách nút tùy chỉnh đã lưu nếu có
+        if os.path.exists("custom_buttons.json"):
+            try:
+                with open("custom_buttons.json", "r", encoding="utf-8") as f:
+                    self.custom_buttons = json.load(f)
+            except Exception:
+                self.custom_buttons = []
+
+    def save_custom_buttons_config(self):
+        try:
+            with open("custom_buttons.json", "w", encoding="utf-8") as f:
+                json.dump(self.custom_buttons, f, ensure_ascii=False, indent=4)
+        except Exception:
+            pass
+
     def create_dashboard_screen(self):
         self.clear_window()
         
         lbl_title = tk.Label(self.root, text="⚡ AUTO & GITHUB CONTROL CENTER", font=("Segoe UI", 13, "bold"), bg=BG_COLOR, fg=ACCENT_BLUE)
-        lbl_title.pack(pady=(12, 5))
+        lbl_title.pack(pady=(10, 3))
         
         self.status_frame = tk.Frame(self.root, bg=PANEL_COLOR, bd=1, relief="solid")
-        self.status_frame.pack(fill="x", padx=20, pady=5)
+        self.status_frame.pack(fill="x", padx=20, pady=3)
         
         self.status_label = tk.Label(self.status_frame, text="Trạng thái: Sẵn sàng hoạt động", font=("Segoe UI", 9), bg=PANEL_COLOR, fg=ACCENT_GREEN)
-        self.status_label.pack(pady=6, padx=10)
+        self.status_label.pack(pady=5, padx=10)
         
-        btn_frame = tk.Frame(self.root, bg=BG_COLOR)
-        btn_frame.pack(pady=5)
+        # Khung chứa nút cuộn nếu danh sách nút quá dài
+        container = tk.Frame(self.root, bg=BG_COLOR)
+        container.pack(fill=tk.BOTH, expand=True, padx=20, pady=2)
 
-        btn_run = tk.Button(btn_frame, text="▶  Chạy Kịch Bản Auto Ngay", font=("Segoe UI", 10, "bold"), bg=ACCENT_GREEN, fg=BTN_TEXT, width=32, height=2, bd=0, relief="flat", cursor="hand2", command=self.on_click_run)
-        btn_run.pack(pady=4)
+        canvas = tk.Canvas(container, bg=BG_COLOR, highlightthickness=0)
+        scrollbar = tk.Scrollbar(container, orient="vertical", command=canvas.yview)
+        scrollable_frame = tk.Frame(canvas, bg=BG_COLOR)
 
-        btn_sync = tk.Button(btn_frame, text="🔄  Đồng Bộ Tất Cả File Từ Máy Lên GitHub", font=("Segoe UI", 10, "bold"), bg=ACCENT_CYAN, fg=BTN_TEXT, width=32, height=2, bd=0, relief="flat", cursor="hand2", command=self.on_click_sync)
-        btn_sync.pack(pady=4)
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
 
-        btn_goto_upload = tk.Button(btn_frame, text="✍️  Soạn & Tải Code Lên GitHub", font=("Segoe UI", 10, "bold"), bg=ACCENT_ORANGE, fg=BTN_TEXT, width=32, height=2, bd=0, relief="flat", cursor="hand2", command=self.create_upload_screen)
-        btn_goto_upload.pack(pady=4)
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
 
-        btn_upload_local = tk.Button(btn_frame, text="📁  Tải Lẻ File Từ Máy Lên GitHub", font=("Segoe UI", 10, "bold"), bg=ACCENT_PURPLE, fg=BTN_TEXT, width=32, height=2, bd=0, relief="flat", cursor="hand2", command=self.create_upload_local_screen)
-        btn_upload_local.pack(pady=4)
+        # Định nghĩa các nút bấm mặc định
+        btn_run = tk.Button(scrollable_frame, text="▶  Chạy Kịch Bản Auto Ngay", font=("Segoe UI", 10, "bold"), bg=ACCENT_GREEN, fg=BTN_TEXT, width=32, height=2, bd=0, relief="flat", cursor="hand2", command=self.on_click_run)
+        btn_run.pack(pady=3)
 
-        btn_list_files = tk.Button(btn_frame, text="📋  Xem Danh Sách File Repository", font=("Segoe UI", 10, "bold"), bg=ACCENT_BLUE, fg=BTN_TEXT, width=32, height=2, bd=0, relief="flat", cursor="hand2", command=self.show_file_list_screen)
-        btn_list_files.pack(pady=4)
+        btn_sync = tk.Button(scrollable_frame, text="🔄  Đồng Bộ Tất Cả File Từ Máy Lên GitHub", font=("Segoe UI", 10, "bold"), bg=ACCENT_CYAN, fg=BTN_TEXT, width=32, height=2, bd=0, relief="flat", cursor="hand2", command=self.on_click_sync)
+        btn_sync.pack(pady=3)
 
-        btn_delete = tk.Button(btn_frame, text="🗑️  Xóa File Trên GitHub (Chọn Danh Sách)", font=("Segoe UI", 10, "bold"), bg=ACCENT_RED, fg=BTN_TEXT, width=32, height=2, bd=0, relief="flat", cursor="hand2", command=self.create_delete_screen)
-        btn_delete.pack(pady=4)
+        btn_goto_upload = tk.Button(scrollable_frame, text="✍️  Soạn & Tải Code Lên GitHub", font=("Segoe UI", 10, "bold"), bg=ACCENT_ORANGE, fg=BTN_TEXT, width=32, height=2, bd=0, relief="flat", cursor="hand2", command=self.create_upload_screen)
+        btn_goto_upload.pack(pady=3)
+
+        btn_upload_local = tk.Button(scrollable_frame, text="📁  Tải Lẻ File Từ Máy Lên GitHub", font=("Segoe UI", 10, "bold"), bg=ACCENT_PURPLE, fg=BTN_TEXT, width=32, height=2, bd=0, relief="flat", cursor="hand2", command=self.create_upload_local_screen)
+        btn_upload_local.pack(pady=3)
+
+        btn_list_files = tk.Button(scrollable_frame, text="📋  Xem Danh Sách File Repository", font=("Segoe UI", 10, "bold"), bg=ACCENT_BLUE, fg=BTN_TEXT, width=32, height=2, bd=0, relief="flat", cursor="hand2", command=self.show_file_list_screen)
+        btn_list_files.pack(pady=3)
+
+        btn_delete = tk.Button(scrollable_frame, text="🗑️  Xóa File Trên GitHub (Chọn Danh Sách)", font=("Segoe UI", 10, "bold"), bg=ACCENT_RED, fg=BTN_TEXT, width=32, height=2, bd=0, relief="flat", cursor="hand2", command=self.create_delete_screen)
+        btn_delete.pack(pady=3)
+
+        # Nút chức năng: Thêm nút từ GitHub
+        btn_add_custom = tk.Button(scrollable_frame, text="➕  Thêm Nút Gắn Code Từ GitHub", font=("Segoe UI", 10, "bold"), bg="#f9e2af", fg=BTN_TEXT, width=32, height=2, bd=0, relief="flat", cursor="hand2", command=self.create_add_custom_button_screen)
+        btn_add_custom.pack(pady=3)
+
+        # Hiển thị các nút động được thêm từ GitHub
+        if self.custom_buttons:
+            lbl_sep = tk.Label(scrollable_frame, text="--- Nút Tùy Chỉnh Từ GitHub ---", font=("Segoe UI", 8, "italic"), bg=BG_COLOR, fg="#a6adc8")
+            lbl_sep.pack(pady=3)
+            
+            for btn_info in self.custom_buttons:
+                b_name = btn_info.get("name")
+                b_file = btn_info.get("file")
+                
+                dyn_btn = tk.Button(scrollable_frame, text=f"⚡ {b_name} ({b_file})", font=("Segoe UI", 9, "bold"), bg="#fab387", fg=BTN_TEXT, width=32, height=2, bd=0, relief="flat", cursor="hand2", command=lambda f=b_file, n=b_name: self.run_custom_github_code(f, n))
+                dyn_btn.pack(pady=2)
 
         lbl_footer = tk.Label(self.root, text="Environment: Termux X11 • Repository: huyxaa00-eng/my_project", font=("Segoe UI", 8), bg=BG_COLOR, fg="#6c7086")
-        lbl_footer.pack(side="bottom", pady=8)
+        lbl_footer.pack(side="bottom", pady=5)
+
+    def run_custom_github_code(self, filename, btn_name):
+        def background_run():
+            self.status_label.config(text=f"Trạng thái: Đang tải và chạy '{btn_name}' từ GitHub...")
+            success, code_content = fetch_code_from_github(filename)
+            if success:
+                try:
+                    # Thực thi đoạn code Python tải về trong môi trường an toàn cục bộ
+                    exec_globals = {"__builtins__": __builtins__, "os": os, "sys": sys, "tk": tk}
+                    exec(code_content, exec_globals)
+                    self.status_label.config(text=f"Trạng thái: Đã thực thi '{btn_name}' thành công!")
+                    messagebox.showinfo("Thành công", f"Đã chạy xong kịch bản từ file: {filename}")
+                except Exception as e:
+                    self.status_label.config(text=f"Trạng thái: Lỗi thực thi '{btn_name}'")
+                    messagebox.showerror("Lỗi thực thi code", f"Lỗi trong file {filename}:\n{str(e)}")
+            else:
+                self.status_label.config(text=f"Trạng thái: Không thể tải file {filename}")
+                messagebox.showerror("Lỗi", f"Không thể tải code từ GitHub:\n{code_content}")
+
+        threading.Thread(target=background_run).start()
+        messagebox.showinfo("Đang tải", f"Đang kết nối GitHub để chạy kịch bản '{btn_name}'...")
+
+    # --- MÀN HÌNH THÊM NÚT TÙY CHỈNH TỪ GITHUB ---
+    def create_add_custom_button_screen(self):
+        self.clear_window()
+
+        lbl_title = tk.Label(self.root, text="➕ Thêm Nút Gắn Code Từ GitHub", font=("Segoe UI", 12, "bold"), bg=BG_COLOR, fg="#f9e2af")
+        lbl_title.pack(pady=(15, 10))
+
+        tk.Label(self.root, text="Nhập tên hiển thị trên nút (vd: Chạy Tool A):", font=("Segoe UI", 9), bg=BG_COLOR, fg=TEXT_COLOR).pack(anchor="w", padx=25)
+        self.btn_name_entry = tk.Entry(self.root, font=("Segoe UI", 10), bg=PANEL_COLOR, fg=TEXT_COLOR, insertbackground="white", width=38, relief="solid", bd=1)
+        self.btn_name_entry.pack(pady=5)
+
+        tk.Label(self.root, text="Tên file Python trên GitHub (vd: scriptA.py):", font=("Segoe UI", 9), bg=BG_COLOR, fg=TEXT_COLOR).pack(anchor="w", padx=25, pady=(10,0))
+        self.btn_file_entry = tk.Entry(self.root, font=("Segoe UI", 10), bg=PANEL_COLOR, fg=TEXT_COLOR, insertbackground="white", width=38, relief="solid", bd=1)
+        self.btn_file_entry.pack(pady=5)
+
+        frame_btn = tk.Frame(self.root, bg=BG_COLOR)
+        frame_btn.pack(pady=25)
+
+        btn_save = tk.Button(frame_btn, text="Tạo & Lưu Nút Mới", font=("Segoe UI", 9, "bold"), bg=ACCENT_GREEN, fg=BTN_TEXT, width=18, height=2, bd=0, command=self.handle_save_custom_button)
+        btn_save.pack(side=tk.LEFT, padx=10)
+
+        btn_back = tk.Button(frame_btn, text="Quay Lại", font=("Segoe UI", 9), bg="#45475a", fg=TEXT_COLOR, width=15, height=2, bd=0, command=self.create_dashboard_screen)
+        btn_back.pack(side=tk.LEFT, padx=10)
+
+    def handle_save_custom_button(self):
+        name = self.btn_name_entry.get().strip()
+        filename = self.btn_file_entry.get().strip()
+
+        if not name or not filename:
+            messagebox.showerror("Lỗi", "Vui lòng nhập đầy đủ tên nút và tên file trên GitHub!")
+            return
+
+        if not filename.endswith(".py"):
+            filename += ".py"
+
+        # Thêm vào danh sách và lưu lại cấu hình
+        self.custom_buttons.append({"name": name, "file": filename})
+        self.save_custom_buttons_config()
+
+        messagebox.showinfo("Thành công", f"Đã thêm nút '{name}' gắn với file '{filename}' thành công!")
+        self.create_dashboard_screen()
 
     def on_click_run(self):
         msg = xu_ly_auto_game()
@@ -216,7 +463,7 @@ class MainApplication:
         threading.Thread(target=background_upload).start()
         messagebox.showinfo("Đang xử lý", "Đang gửi file lên GitHub, vui lòng đợi giây lát...")
 
-    # --- MÀN HÌNH XÓA FILE TRÊN GITHUB (HIỂN THỊ DANH SÁCH ĐỂ CHỌN) ---
+    # --- MÀN HÌNH XÓA FILE TRÊN GITHUB ---
     def create_delete_screen(self):
         self.clear_window()
 
@@ -225,7 +472,6 @@ class MainApplication:
 
         tk.Label(self.root, text="Bấm chọn file cần xóa trong danh sách dưới đây:", font=("Segoe UI", 9), bg=BG_COLOR, fg=TEXT_COLOR).pack(anchor="w", padx=20)
 
-        # Hộp danh sách (Listbox) hiển thị file
         frame_list = tk.Frame(self.root, bg=BG_COLOR)
         frame_list.pack(pady=5)
 
@@ -236,7 +482,6 @@ class MainApplication:
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         self.file_listbox.config(yscrollcommand=scrollbar.set)
 
-        # Tải danh sách file ngầm
         def load_files_to_listbox():
             success, result = get_github_file_list()
             self.file_listbox.delete(0, tk.END)
@@ -275,7 +520,7 @@ class MainApplication:
                 success, msg = delete_file_from_github(filename)
                 if success:
                     messagebox.showinfo("Thành công", msg)
-                    self.create_delete_screen() # Load lại danh sách sau khi xóa
+                    self.create_delete_screen()
                 else:
                     messagebox.showerror("Thất bại", msg)
 
