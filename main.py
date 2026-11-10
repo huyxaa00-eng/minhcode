@@ -50,7 +50,7 @@ def upload_file_to_github(file_name, content):
 class AutoManagerApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("🤖 Trạm Quản Lý Tự Động & Sóng Nhạc 24/7")
+        self.root.title("🤖 Trạm Quản Lý Tự Động & Macro Pro")
         self.root.geometry("500x680")
         self.root.configure(bg="#121212")
         
@@ -61,10 +61,10 @@ class AutoManagerApp:
         header_frame = tk.Frame(root, bg="#1e1e1e", pady=10)
         header_frame.pack(fill=tk.X, padx=15, pady=(12, 5))
         
-        title_label = tk.Label(header_frame, text="QUẢN LÝ HỆ THỐNG AUTO & VISION", font=("Segoe UI", 12, "bold"), bg="#1e1e1e", fg="#00ffcc")
+        title_label = tk.Label(header_frame, text="QUẢN LÝ HỆ THỐNG AUTO & MACRO", font=("Segoe UI", 12, "bold"), bg="#1e1e1e", fg="#00ffcc")
         title_label.pack()
         
-        sub_label = tk.Label(header_frame, text="Trạng thái: Đồng bộ GitHub, Sóng nhạc & Tìm ảnh tự động", font=("Segoe UI", 8), bg="#1e1e1e", fg="#888888")
+        sub_label = tk.Label(header_frame, text="Trạng thái: Đồng bộ GitHub, Sóng nhạc & Auto Click Đa Điểm", font=("Segoe UI", 8), bg="#1e1e1e", fg="#888888")
         sub_label.pack(pady=(2, 0))
 
         # --- NHÓM 1: CANVAS HIỆU ỨNG SÓNG NHẠC ---
@@ -75,12 +75,12 @@ class AutoManagerApp:
         self.canvas.pack(padx=5, pady=5)
         self.bars = [random.randint(10, 50) for _ in range(24)]
 
-        # --- NHÓM 2: ĐIỀU KHIỂN GITHUB & TÌM ẢNH CLICK ---
-        group_github = tk.LabelFrame(root, text=" 🌐 Điều khiển GitHub & Tự động hóa ", font=("Segoe UI", 8, "bold"), bg="#121212", fg="#2979FF", bd=1, relief="solid")
+        # --- NHÓM 2: ĐIỀU KHIỂN GITHUB & MACRO CLICK ---
+        group_github = tk.LabelFrame(root, text=" 🌐 Điều khiển GitHub & Macro Auto ", font=("Segoe UI", 8, "bold"), bg="#121212", fg="#2979FF", bd=1, relief="solid")
         group_github.pack(fill=tk.X, padx=15, pady=5, ipadx=5, ipady=4)
         
         self.create_styled_button(group_github, "▶ Chạy trực tiếp từ GitHub", "#2979FF", self.on_run_github)
-        self.create_styled_button(group_github, "🔍 Tìm kiếm hình ảnh & Click", "#00ACC1", self.on_image_search_click)
+        self.create_styled_button(group_github, "⚡ Chạy Macro Auto Click (Đa điểm)", "#00ACC1", self.on_macro_click)
         self.create_styled_button(group_github, "🗑 Xóa file main.py trên GitHub", "#D32F2F", self.on_delete)
 
         # --- NHÓM 3: HỆ THỐNG & TIẾN TRÌNH ---
@@ -96,7 +96,7 @@ class AutoManagerApp:
         
         self.log_text = tk.Text(group_log, height=4, bg="#1e1e1e", fg="#00FF00", font=("Consolas", 8), relief="flat", highlightthickness=0)
         self.log_text.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
-        self.log_text.insert(tk.END, "[INFO] Hệ thống sẵn sàng thực thi lệnh tìm ảnh và click...\n")
+        self.log_text.insert(tk.END, "[INFO] Hệ thống sẵn sàng với Macro Engine chuyên nghiệp...\n")
 
         # --- FOOTER: THOÁT ---
         footer_frame = tk.Frame(root, bg="#121212")
@@ -180,22 +180,47 @@ class AutoManagerApp:
         except Exception as e:
             self.log(f"Lỗi: {str(e)}")
 
-    def on_image_search_click(self):
-        """Tính năng tìm kiếm hình ảnh và thực hiện click tự động"""
-        self.log("[VISION] Dang quet va tim kiem hinh anh mau tren man hinh...")
+    def on_macro_click(self):
+        """Hệ thống Macro Auto Click đa điểm chuyên nghiệp (Tap, Swipe, Delay, Loop)"""
+        self.log("[MACRO] Bắt đầu thực thi chuỗi Auto Click đa điểm...")
         
-        # Chạy tiến trình quét tìm ảnh ngầm để không đơ giao diện Tkinter
-        def scan_and_click_task():
+        def macro_task():
             try:
-                # Giả lập quá trình template matching hoặc xử lý hình ảnh
-                time.sleep(1.5)
-                # Bạn có thể tích hợp thư viện OpenCV/PyAutoGUI tại đây để xử lý tìm kiếm tọa độ ảnh
-                self.log("[VISION] Tim thay muc tieu! Da thuc hien thao tac click tu dong.")
-                self.root.after(0, lambda: messagebox.showinfo("Thành công", "Đã quét và click hình ảnh mục tiêu thành công!"))
+                # Kịch bản mẫu (Bạn có thể tinh chỉnh tọa độ X, Y và thời gian trễ theo ý muốn)
+                # Định dạng: ('tap', x, y, delay_seconds) hoặc ('swipe', x1, y1, x2, y2, duration_seconds)
+                macro_actions = [
+                    ('tap', 500, 1200, 1.0),                  # Click nút vào trận / bắt đầu
+                    ('tap', 300, 800, 0.5),                   # Click chọn vị trí / mục tiêu 1
+                    ('swipe', 200, 1000, 800, 1000, 0.5),     # Vuốt màn hình cuộn danh sách
+                    ('tap', 700, 1200, 2.0)                   # Click xác nhận
+                ]
+                
+                loops = 3  # Số vòng lặp kịch bản
+                for current_loop in range(1, loops + 1):
+                    self.log(f"[MACRO] --- Vòng lặp {current_loop}/{loops} ---")
+                    
+                    for action in macro_actions:
+                        if action[0] == 'tap':
+                            _, x, y, delay = action
+                            self.log(f"[MACRO] Tap tại tọa độ: X={x}, Y={y}")
+                            subprocess.run(f"input tap {x} {y}", shell=True)
+                            time.sleep(delay)
+                            
+                        elif action[0] == 'swipe':
+                            _, x1, y1, x2, y2, duration = action
+                            self.log(f"[MACRO] Swipe từ ({x1},{y1}) đến ({x2},{y2})")
+                            subprocess.run(f"input swipe {x1} {y1} {x2} {y2} {int(duration * 1000)}", shell=True)
+                            time.sleep(1.0)
+                            
+                    time.sleep(1.5)
+                
+                self.log("[MACRO] Hoàn thành chuỗi kịch bản tự động!")
+                self.root.after(0, lambda: messagebox.showinfo("Thành công", "Đã chạy xong chuỗi Macro Auto Click!"))
+                
             except Exception as e:
-                self.log(f"[VISION ERROR] {str(e)}")
+                self.log(f"[MACRO ERROR] {str(e)}")
 
-        threading.Thread(target=scan_and_click_task, daemon=True).start()
+        threading.Thread(target=macro_task, daemon=True).start()
 
     def on_delete(self):
         if messagebox.askyesno("Xác nhận", "Xóa file main.py trên GitHub?"):
@@ -217,18 +242,18 @@ class AutoManagerApp:
                 messagebox.showerror("Lỗi", "Không tìm thấy file main.py trên GitHub để xóa!")
 
     def on_full_reset(self):
-        if messagebox.askyesno("Xác nhận Reset", "Tai lai ban moi nhat tu GitHub va khoi dong lai?"):
-            self.log("Dang reset he thong...")
+        if messagebox.askyesno("Xác nhận Reset", "Hệ thống sẽ tải lại bản mới nhất từ GitHub và khởi động lại. Tiếp tục?"):
+            self.log("Dang tien hanh reset he thong...")
             try:
                 check_and_free_port(APP_PORT)
                 url = f"https://raw.githubusercontent.com/{REPO_OWNER}/{REPO_NAME}/main/main.py"
                 os.system(f"curl -fsSL {url} -o main.py")
                 self.is_running = False
-                messagebox.showinfo("Thành công", "Đã reset xong!")
+                messagebox.showinfo("Thành công", "Đã reset và tải lại phiên bản mới thành công!")
                 self.root.destroy()
                 os.execl(sys.executable, sys.executable, *sys.argv)
             except Exception as e:
-                messagebox.showerror("Lỗi", str(e))
+                self.log(f"[RESET ERROR] {str(e)}")
 
     def on_reset_log(self):
         self.log_text.delete("1.0", tk.END)
