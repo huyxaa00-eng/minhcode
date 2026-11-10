@@ -1,27 +1,12 @@
 import json
 import os
-import sys
 import threading
-import zipfile
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
-# 1. Cấu hình biến môi trường hiển thị qua X11 cho Termux
+# 1. Bắt buộc cấu hình biến môi trường hiển thị qua X11 cho Termux / Samsung DeX
 os.environ["DISPLAY"] = ":0"
 
-# 2. Tự động giải nén thư viện libs.zip nếu chưa có thư mục libs
-libs_dir = os.path.abspath("./libs")
-libs_zip = os.path.abspath("./libs.zip")
-
-if not os.path.exists(libs_dir) and os.path.exists(libs_zip):
-  print("📦 Đang giải nén thư viện từ libs.zip...")
-  with zipfile.ZipFile(libs_zip, "r") as zip_ref:
-    zip_ref.extractall(".")
-
-# 3. Đưa thư mục libs lên ưu tiên trong sys.path
-if libs_dir not in sys.path:
-  sys.path.insert(0, libs_dir)
-
-# 4. Import Kivy an toàn
+# 2. Import Kivy trực tiếp từ môi trường
 try:
   from kivy.app import App
   from kivy.uix.boxlayout import BoxLayout
@@ -32,7 +17,7 @@ try:
   print("✅ Nạp thư viện Kivy thành công qua môi trường X11!")
 except Exception as e:
   KIVY_AVAILABLE = False
-  print(f"⚠️ Cảnh báo Kivy: {e}")
+  print(f"⚠️ Không thể nạp Kivy: {e}")
 
 
 # --- KHU VỰC XỬ LÝ TÁC VỤ / AUTO GAME ---
@@ -65,7 +50,7 @@ class TaskHandler(BaseHTTPRequestHandler):
     self.wfile.write(json.dumps(response).encode("utf-8"))
 
   def log_message(self, format, *args):
-    return  # Ẩn log rườm rà của http server
+    return  # Ẩn log rườm rà của HTTP server
 
 
 def run_server(port=5000):
@@ -75,7 +60,7 @@ def run_server(port=5000):
   httpd.serve_forever()
 
 
-# --- GIAO DIỆN KIVY (XUẤT RA X11) ---
+# --- GIAO DIỆN KIVY XUẤT RA X11 ---
 if KIVY_AVAILABLE:
 
   class MainApp(App):
@@ -83,7 +68,7 @@ if KIVY_AVAILABLE:
     def build(self):
       layout = BoxLayout(orientation="vertical", padding=30, spacing=20)
       self.label = Label(
-          text="Trạng thái: Sẵn sàng nhận lệnh / Auto", font_size=20
+          text="Trạng thái: Sẵn sàng xuất hình X11", font_size=20
       )
       btn = Button(
           text="Chạy Auto Ngay", font_size=18, size_hint=(1, 0.3)
@@ -101,20 +86,17 @@ else:
   MainApp = None
 
 
-# --- KHỞI ĐỘNG CHƯƠNG TRÌNH ---
+# --- KHỞI ĐỘNG HỆ THỐNG ---
 if __name__ == "__main__":
-  # Khởi động Server ngầm ở một luồng riêng biệt (Background Thread)
+  # Khởi động Server HTTP ngầm ở luồng riêng biệt
   server_thread = threading.Thread(target=run_server, args=(5000,))
   server_thread.daemon = True
   server_thread.start()
 
-  # Bật trực tiếp giao diện Kivy ra màn hình X11 trên luồng chính
+  # Khởi chạy giao diện Kivy xuất thẳng ra màn hình X11 trên luồng chính
   if KIVY_AVAILABLE and MainApp:
-    print("🖥️ Đang khởi động giao diện Kivy qua X11...")
+    print("🖥️ Đang đẩy giao diện Kivy ra màn hình X11...")
     MainApp().run()
   else:
-    print(
-        "⚠️ Kivy chưa sẵn sàng hoặc thiếu thư viện libs.zip. Chạy chế độ server"
-        " thuần."
-    )
+    print("⚠️ Kivy không khả dụng, chạy ở chế độ server thuần.")
     server_thread.join()
