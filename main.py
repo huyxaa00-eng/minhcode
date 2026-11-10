@@ -1,4 +1,16 @@
 import os
+import sys
+import zipfile
+
+# Tự động giải nén thư viện libs.zip nếu chưa tồn tại thư mục libs
+if not os.path.exists('libs') and os.path.exists('libs.zip'):
+  print('📦 Đang giải nén thư viện...')
+  with zipfile.ZipFile('libs.zip', 'r') as zip_ref:
+    zip_ref.extractall('.')
+
+# Thêm thư mục libs vào đường dẫn tìm kiếm thư viện của Python
+sys.path.insert(0, os.path.abspath('./libs'))
+import os
 import subprocess
 import sys
 import json
