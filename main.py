@@ -101,21 +101,9 @@ else:
   MainApp = None
 
 
+# --- KHỞI ĐỘNG CHƯƠNG TRÌNH ---
 if __name__ == "__main__":
   # Khởi động Server ngầm ở một luồng riêng biệt (Background Thread)
-  server_thread = threading.Thread(target=run_server, args=(5000,))
-  server_thread.daemon = True
-  server_thread.start()
-
-  # Chạy giao diện Kivy xuất ra màn hình X11 trên luồng chính
-  if KIVY_AVAILABLE and MainApp:
-    print("🖥️ Đang khởi động giao diện Kivy qua X11...")
-    MainApp().run()
-  else:
-    print("⚠️ Chạy ở chế độ Server thuần không giao diện.")
-    server_thread.join()
-if __name__ == "__main__":
-  # Khởi động Server ngầm ở luồng riêng
   server_thread = threading.Thread(target=run_server, args=(5000,))
   server_thread.daemon = True
   server_thread.start()
@@ -125,4 +113,8 @@ if __name__ == "__main__":
     print("🖥️ Đang khởi động giao diện Kivy qua X11...")
     MainApp().run()
   else:
-    print("⚠️ Kivy chưa sẵn sàng.")
+    print(
+        "⚠️ Kivy chưa sẵn sàng hoặc thiếu thư viện libs.zip. Chạy chế độ server"
+        " thuần."
+    )
+    server_thread.join()
