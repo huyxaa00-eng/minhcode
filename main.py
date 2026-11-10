@@ -1,191 +1,116 @@
-import os
-import sys
-import zipfile
-
-# Tự động giải nén thư viện libs.zip nếu chưa tồn tại thư mục libs
-if not os.path.exists('libs') and os.path.exists('libs.zip'):
-  print('📦 Đang giải nén thư viện...')
-  with zipfile.ZipFile('libs.zip', 'r') as zip_ref:
-    zip_ref.extractall('.')
-
-# Thêm thư mục libs vào đường dẫn tìm kiếm thư viện của Python
-sys.path.insert(0, os.path.abspath('./libs'))
-import os
-import subprocess
-import sys
 import json
+import os
+import sys
 import threading
-import urllib.request
+import zipfile
+from http.server import BaseHTTPRequestHandler, HTTPServer
 
-from kivy.app import App
-from kivy.uix.boxlayout import BoxLayout
-from kivy.uix.floatlayout import FloatLayout
-from kivy.uix.button import Button
-from kivy.uix.label import Label
-from kivy.uix.textinput import TextInput
-from kivy.uix.scrollview import ScrollView
-from kivy.clock import Clock
-from kivy.core.window import Window
+# 1. Cấu hình biến môi trường hiển thị qua X11 cho Termux
+os.environ["DISPLAY"] = ":0"
 
-CONFIG_FILE = "saved_links.json"
-DOWNLOAD_DIR = "downloaded_scripts"
+# 2. Tự động giải nén thư viện libs.zip nếu chưa có thư mục libs
+libs_dir = os.path.abspath("./libs")
+libs_zip = os.path.abspath("./libs.zip")
 
-if not os.path.exists(DOWNLOAD_DIR):
-    os.makedirs(DOWNLOAD_DIR)
+if not os.path.exists(libs_dir) and os.path.exists(libs_zip):
+  print("📦 Đang giải nén thư viện từ libs.zip...")
+  with zipfile.ZipFile(libs_zip, "r") as zip_ref:
+    zip_ref.extractall(".")
 
-def load_links():
-    if os.path.exists(CONFIG_FILE):
-        try:
-            with open(CONFIG_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except:
-            return {}
-    return {}
+# 3. Đưa thư mục libs lên ưu tiên trong sys.path
+if libs_dir not in sys.path:
+  sys.path.insert(0, libs_dir)
 
-def save_links(links):
-    with open(CONFIG_FILE, "w", encoding="utf-8") as f:
-        json.dump(links, f, ensure_ascii=False, indent=4)
+# 4. Import Kivy an toàn
+try:
+  from kivy.app import App
+  from kivy.uix.boxlayout import BoxLayout
+  from kivy.uix.button import Button
+  from kivy.uix.label import Label
 
-class MainPanel(BoxLayout):
-    def __init__(self, app_instance, **kwargs):
-        super(MainPanel, self).__init__(**kwargs)
-        self.app_instance = app_instance
-        self.orientation = 'vertical'
-        self.padding = 10
-        self.spacing = 10
+  KIVY_AVAILABLE = True
+  print("✅ Nạp thư viện Kivy thành công qua môi trường X11!")
+except Exception as e:
+  KIVY_AVAILABLE = False
+  print(f"⚠️ Cảnh báo Kivy: {e}")
 
-        # Title bar
-        title_layout = BoxLayout(size_hint_y=None, height=40)
-        title_lbl = Label(text="[b]QUẢN LÝ & CHẠY PYTHON[/b]", markup=True, color=(1, 1, 1, 1))
-        close_btn = Button(text="✕", size_hint_x=None, width=40, background_color=(0.8, 0.2, 0.2, 1))
-        close_btn.bind(on_press=self.close_panel)
-        title_layout.add_widget(title_lbl)
-        title_layout.add_widget(close_btn)
-        self.add_widget(title_layout)
 
-        # Action buttons row 1
-        row1 = BoxLayout(size_hint_y=None, height=45, spacing=5)
-        btn_add_git = Button(text="🌐 Thêm Git", background_color=(0.9, 0.6, 0.1, 1))
-        btn_add_git.bind(on_press=self.add_git_popup)
-        btn_stop = Button(text="⏹ Dừng", background_color=(0.8, 0.2, 0.2, 1))
-        btn_stop.bind(on_press=lambda x: self.app_instance.stop_current_process())
-        row1.add_widget(btn_add_git)
-        row1.add_widget(btn_stop)
-        self.add_widget(row1)
+# --- KHU VỰC XỬ LÝ TÁC VỤ / AUTO GAME ---
+def xu_ly_auto_game():
+  print("🎮 Đang chạy kịch bản auto game...")
+  return "Auto game đã thực thi thành công!"
 
-        # Scrollable file list
-        self.scroll = ScrollView()
-        self.list_layout = BoxLayout(orientation='vertical', size_hint_y=None, spacing=5)
-        self.list_layout.bind(minimum_height=self.list_layout.setter('height'))
-        self.scroll.add_widget(self.list_layout)
-        self.add_widget(self.scroll)
 
-        # Output console
-        self.output_box = TextInput(text="Kết quả thực thi sẽ hiển thị ở đây...\n", readonly=True, background_color=(0.1, 0.1, 0.1, 1), foreground_color=(0, 1, 0, 1), size_hint_y=None, height=150)
-        self.add_widget(self.output_box)
+# --- SERVER NHẬN LỆNH NGẦM ---
+class TaskHandler(BaseHTTPRequestHandler):
 
-        self.refresh_file_list()
+  def do_POST(self):
+    content_length = int(self.headers["Content-Length"])
+    post_data = self.rfile.read(content_length)
+    data = json.loads(post_data.decode("utf-8"))
 
-    def close_panel(self, instance):
-        self.app_instance.root_layout.remove_widget(self)
-        self.app_instance.panel_open = False
+    command = data.get("command", "none")
+    print(f"📥 Nhận lệnh qua HTTP: {command}")
 
-    def refresh_file_list(self):
-        self.list_layout.clear_widgets()
+    result_msg = ""
+    if command == "chay_auto_game":
+      result_msg = xu_ly_auto_game()
+    else:
+      result_msg = f"Đã nhận lệnh: {command}"
 
-        # List Auto files
-        for f in sorted(os.listdir('.')):
-            if f.lower().startswith('auto') and f.endswith('.py'):
-                row = BoxLayout(size_hint_y=None, height=40, spacing=5)
-                btn_run = Button(text=f"▶ {f}", background_color=(0.2, 0.7, 0.3, 1))
-                btn_run.bind(on_press=lambda x, path=f: self.app_instance.run_path(path))
-                row.add_widget(btn_run)
-                self.list_layout.add_widget(row)
+    self.send_response(200)
+    self.send_header("Content-type", "application/json; charset=utf-8")
+    self.end_headers()
+    response = {"status": "success", "message": result_msg}
+    self.wfile.write(json.dumps(response).encode("utf-8"))
 
-        # List Saved Links
-        links = load_links()
-        for name, path in links.items():
-            row = BoxLayout(size_hint_y=None, height=40, spacing=5)
-            btn_run = Button(text=f"▶ {name}", background_color=(0, 0.5, 0.8, 1))
-            btn_run.bind(on_press=lambda x, p=path: self.app_instance.run_path(p))
-            row.add_widget(btn_run)
-            self.list_layout.add_widget(row)
+  def log_message(self, format, *args):
+    return  # Ẩn log rườm rà của http server
 
-    def add_git_popup(self, instance):
-        self.app_instance.log("Vui lòng thêm link git trực tiếp qua code hoặc cấu hình.")
 
-class PythonManagerApp(App):
+def run_server(port=5000):
+  server_address = ("0.0.0.0", port)
+  httpd = HTTPServer(server_address, TaskHandler)
+  print(f"🚀 Server HTTP đang chạy tại cổng {port}, sẵn sàng nhận lệnh!")
+  httpd.serve_forever()
+
+
+# --- GIAO DIỆN KIVY (XUẤT RA X11) ---
+if KIVY_AVAILABLE:
+
+  class MainApp(App):
+
     def build(self):
-        self.title = "Python Auto Manager"
-        self.current_process = None
-        self.panel_open = False
+      layout = BoxLayout(orientation="vertical", padding=30, spacing=20)
+      self.label = Label(
+          text="Trạng thái: Sẵn sàng nhận lệnh / Auto", font_size=20
+      )
+      btn = Button(
+          text="Chạy Auto Ngay", font_size=18, size_hint=(1, 0.3)
+      )
+      btn.bind(on_press=self.on_button_click)
 
-        self.root_layout = FloatLayout()
+      layout.add_widget(self.label)
+      layout.add_widget(btn)
+      return layout
 
-        # Floating Button (Bong bóng)
-        self.float_btn = Button(text="💬 BONG BÓNG", size_hint=(None, None), size=(140, 45), pos=(50, 50), background_color=(1, 0.6, 0, 1))
-        self.float_btn.bind(on_release=self.toggle_panel)
-        self.root_layout.add_widget(self.float_btn)
+    def on_button_click(self, instance):
+      msg = xu_ly_auto_game()
+      self.label.text = f"Trạng thái: {msg}"
+else:
+  MainApp = None
 
-        return self.root_layout
 
-    def toggle_panel(self, instance):
-        if not self.panel_open:
-            self.panel = MainPanel(self, size_hint=(0.9, 0.8), pos_hint={'center_x': 0.5, 'center_y': 0.5})
-            self.root_layout.add_widget(self.panel)
-            self.panel_open = True
-        else:
-            self.root_layout.remove_widget(self.panel)
-            self.panel_open = False
+if __name__ == "__main__":
+  # Khởi động Server ngầm ở một luồng riêng biệt (Background Thread)
+  server_thread = threading.Thread(target=run_server, args=(5000,))
+  server_thread.daemon = True
+  server_thread.start()
 
-    def log(self, text):
-        print(text)
-        if hasattr(self, 'panel') and hasattr(self.panel, 'output_box'):
-            self.panel.output_box.text += text + "\n"
-
-    def run_path(self, p):
-        p = p.strip().strip('"').strip("'")
-        if not p or not os.path.exists(p):
-            self.log(f"Không tìm thấy đường dẫn: {p}")
-            return
-        
-        if self.current_process:
-            self.stop_current_process()
-
-        self.log(f"Đang chạy: {p}")
-        
-        def target():
-            try:
-                self.current_process = subprocess.Popen(
-                    [sys.executable, p],
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    text=True,
-                    encoding="utf-8"
-                )
-                stdout, stderr = self.current_process.communicate()
-                if stdout:
-                    Clock.schedule_once(lambda dt: self.log(stdout))
-                if stderr:
-                    Clock.schedule_once(lambda dt: self.log(f"[LỖI]:\n{stderr}"))
-                Clock.schedule_once(lambda dt: self.log("[Hoàn tất!]"))
-            except Exception as ex:
-                Clock.schedule_once(lambda dt: self.log(f"Lỗi thực thi: {str(ex)}"))
-            finally:
-                self.current_process = None
-
-        threading.Thread(target=target, daemon=True).start()
-
-    def stop_current_process(self):
-        if self.current_process:
-            try:
-                self.current_process.terminate()
-                self.current_process = None
-                self.log("❌ [Đã dừng tiến trình]")
-            except Exception as e:
-                self.log(f"Lỗi dừng: {e}")
-        else:
-            self.log("⚠️ Không có tiến trình nào đang chạy.")
-
-if __name__ == '__main__':
-    PythonManagerApp().run()
+  # Chạy giao diện Kivy xuất ra màn hình X11 trên luồng chính
+  if KIVY_AVAILABLE and MainApp:
+    print("🖥️ Đang khởi động giao diện Kivy qua X11...")
+    MainApp().run()
+  else:
+    print("⚠️ Chạy ở chế độ Server thuần không giao diện.")
+    server_thread.join()
