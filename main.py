@@ -1,32 +1,21 @@
 import json
 import os
 import threading
+import tkinter as tk
+from tkinter import messagebox
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 # 1. Bắt buộc cấu hình biến môi trường hiển thị qua X11 cho Termux / Samsung DeX
 os.environ["DISPLAY"] = ":0"
 
-# 2. Import Kivy trực tiếp từ môi trường
-try:
-  from kivy.app import App
-  from kivy.uix.boxlayout import BoxLayout
-  from kivy.uix.button import Button
-  from kivy.uix.label import Label
-
-  KIVY_AVAILABLE = True
-  print("✅ Nạp thư viện Kivy thành công qua môi trường X11!")
-except Exception as e:
-  KIVY_AVAILABLE = False
-  print(f"⚠️ Không thể nạp Kivy: {e}")
-
-
 # --- KHU VỰC XỬ LÝ TÁC VỤ / AUTO GAME ---
 def xu_ly_auto_game():
   print("🎮 Đang chạy kịch bản auto game...")
+  # Viết logic code auto game của bạn tại đây
   return "Auto game đã thực thi thành công!"
 
 
-# --- SERVER NHẬN LỆNH NGẦM ---
+# --- HTTP SERVER NHẬN LỆNH NGẦM ---
 class TaskHandler(BaseHTTPRequestHandler):
 
   def do_POST(self):
@@ -46,6 +35,7 @@ class TaskHandler(BaseHTTPRequestHandler):
     self.send_response(200)
     self.send_header("Content-type", "application/json; charset=utf-8")
     self.end_headers()
+    
     response = {"status": "success", "message": result_msg}
     self.wfile.write(json.dumps(response).encode("utf-8"))
 
@@ -60,43 +50,39 @@ def run_server(port=5000):
   httpd.serve_forever()
 
 
-# --- GIAO DIỆN KIVY XUẤT RA X11 ---
-if KIVY_AVAILABLE:
+# --- GIAO DIỆN GUI (XUẤT RA X11) ---
+class AutoGUI:
+  def __init__(self, root):
+    self.root = root
+    self.root.title("Quản lý Auto Game - X11")
+    self.root.geometry("350x250")
 
-  class MainApp(App):
+    # Tiêu đề
+    self.label = tk.Label(root, text="Hệ thống điều khiển Auto", font=("Arial", 14, "bold"))
+    self.label.pack(pady=15)
 
-    def build(self):
-      layout = BoxLayout(orientation="vertical", padding=30, spacing=20)
-      self.label = Label(
-          text="Trạng thái: Sẵn sàng xuất hình X11", font_size=20
-      )
-      btn = Button(
-          text="Chạy Auto Ngay", font_size=18, size_hint=(1, 0.3)
-      )
-      btn.bind(on_press=self.on_button_click)
+    # Nút bấm chạy auto trực tiếp trên giao diện X11
+    self.btn_run = tk.Button(root, text="Chạy Auto Ngay", font=("Arial", 12), bg="#4CAF50", fg="white", width=20, height=2, command=self.on_click_run)
+    self.btn_run.pack(pady=10)
 
-      layout.add_widget(self.label)
-      layout.add_widget(btn)
-      return layout
+    # Nhãn trạng thái
+    self.status_label = tk.Label(root, text="Trạng thái: Sẵn sàng", font=("Arial", 10), fg="gray")
+    self.status_label.pack(pady=15)
 
-    def on_button_click(self, instance):
-      msg = xu_ly_auto_game()
-      self.label.text = f"Trạng thái: {msg}"
-else:
-  MainApp = None
+  def on_click_run(self):
+    msg = xu_ly_auto_game()
+    self.status_label.config(text=f"Trạng thái: {msg}", fg="blue")
+    messagebox.showinfo("Thông báo", msg)
 
 
-# --- KHỞI ĐỘNG HỆ THỐNG ---
 if __name__ == "__main__":
-  # Khởi động Server HTTP ngầm ở luồng riêng biệt
+  # 1. Khởi động HTTP Server ở một luồng riêng (Background Thread)
   server_thread = threading.Thread(target=run_server, args=(5000,))
   server_thread.daemon = True
   server_thread.start()
 
-  # Khởi chạy giao diện Kivy xuất thẳng ra màn hình X11 trên luồng chính
-  if KIVY_AVAILABLE and MainApp:
-    print("🖥️ Đang đẩy giao diện Kivy ra màn hình X11...")
-    MainApp().run()
-  else:
-    print("⚠️ Kivy không khả dụng, chạy ở chế độ server thuần.")
-    server_thread.join()
+  # 2. Khởi chạy Giao diện GUI trên luồng chính để xuất thẳng ra X11
+  print("🖥️ Đang mở giao diện GUI ra màn hình X11...")
+  root = tk.Tk()
+  app = AutoGUI(root)
+  root.mainloop()
