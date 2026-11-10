@@ -1,3 +1,13 @@
+import os
+import sys
+
+# Tự động trỏ đường dẫn vào thư mục libs trong cùng project
+sys.path.insert(
+    0, os.path.abspath(os.path.join(os.path.dirname(__file__), 'libs'))
+)
+
+# Sau đó bạn tiến hành import thư viện như bình thường
+import ten_thu_vien
 import os, subprocess, sys, json, threading, urllib.request, tkinter as tk
 from tkinter import filedialog, messagebox, scrolledtext, simpledialog
 
