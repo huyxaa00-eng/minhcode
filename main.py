@@ -18,6 +18,9 @@ REPO_OWNER = "huyxaa00-eng"
 REPO_NAME = "my_project"
 APP_PORT = 5000
 
+# Đường dẫn công cụ rish (Shizuku)
+RISH_PATH = "/sdcard/Download/dangvietc/rish"
+
 def check_and_free_port(port):
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -66,7 +69,7 @@ class AutoManagerApp:
         title_label = tk.Label(header_frame, text="QUẢN LÝ HỆ THỐNG AUTO & VISION", font=("Segoe UI", 12, "bold"), bg="#1e1e1e", fg="#00ffcc")
         title_label.pack()
         
-        sub_label = tk.Label(header_frame, text="Trạng thái: Đồng bộ GitHub, Sóng nhạc & Tìm ảnh OpenCV", font=("Segoe UI", 8), bg="#1e1e1e", fg="#888888")
+        sub_label = tk.Label(header_frame, text="Trạng thái: Đồng bộ GitHub, Sóng nhạc & Rish Vision", font=("Segoe UI", 8), bg="#1e1e1e", fg="#888888")
         sub_label.pack(pady=(2, 0))
 
         # --- NHÓM 1: CANVAS HIỆU ỨNG SÓNG NHẠC ---
@@ -82,7 +85,7 @@ class AutoManagerApp:
         group_github.pack(fill=tk.X, padx=15, pady=5, ipadx=5, ipady=4)
         
         self.create_styled_button(group_github, "▶ Chạy trực tiếp từ GitHub", "#2979FF", self.on_run_github)
-        self.create_styled_button(group_github, "🔍 Auto Tìm Ảnh & Click (OpenCV)", "#00ACC1", self.on_image_search_click)
+        self.create_styled_button(group_github, "🔍 Auto Tìm Ảnh & Click (Rish)", "#00ACC1", self.on_image_search_click)
         self.create_styled_button(group_github, "🗑 Xóa file main.py trên GitHub", "#D32F2F", self.on_delete)
 
         # --- NHÓM 3: HỆ THỐNG & TIẾN TRÌNH ---
@@ -98,7 +101,7 @@ class AutoManagerApp:
         
         self.log_text = tk.Text(group_log, height=4, bg="#1e1e1e", fg="#00FF00", font=("Consolas", 8), relief="flat", highlightthickness=0)
         self.log_text.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
-        self.log_text.insert(tk.END, "[INFO] Hệ thống sẵn sàng quét ảnh mẫu template.png...\n")
+        self.log_text.insert(tk.END, "[INFO] Hệ thống sẵn sàng chụp màn hình qua rish...\n")
 
         # --- FOOTER: THOÁT ---
         footer_frame = tk.Frame(root, bg="#121212")
@@ -173,55 +176,58 @@ class AutoManagerApp:
             url = f"https://raw.githubusercontent.com/{REPO_OWNER}/{REPO_NAME}/main/main.py"
             cmd = f"curl -fsSL {url} | python"
             subprocess.Popen(cmd, shell=True)
-            self.log("Da khoi chay kich ban thanh công!")
+            self.log("Da khoi chay kich ban thanh cong!")
             messagebox.showinfo("Thành công", "Đã giải phóng port và khởi chạy từ GitHub!")
         except Exception as e:
             self.log(f"Lỗi: {str(e)}")
 
     def on_image_search_click(self):
-        """Thuật toán Template Matching (OpenCV) tìm ảnh và click tự động"""
-        self.log("[VISION] Đang chụp màn hình và quét tìm ảnh mẫu (template.png)...")
+        """Sử dụng rish để chụp màn hình và OpenCV Template Matching tìm ảnh click"""
+        self.log("[VISION] Đang chụp màn hình qua rish và quét tìm ảnh mẫu...")
         
         def vision_task():
             try:
-                # 1. Chụp màn hình thiết bị Android / Termux
                 screenshot_path = "/sdcard/screen.png"
-                subprocess.run(f"screencap -p {screenshot_path}", shell=True)
+                
+                # Gọi lệnh chụp màn hình thông qua rish (có quyền hệ thống)
+                cmd_capture = f"{RISH_PATH} -c 'screencap -p {screenshot_path}'"
+                subprocess.run(cmd_capture, shell=True)
                 
                 if not os.path.exists(screenshot_path):
-                    self.log("[VISION ERROR] Không thể chụp màn hình thiết bị!")
+                    self.log("[VISION ERROR] Không thể chụp màn hình! Kiểm tra lại Shizuku/rish.")
+                    self.root.after(0, lambda: messagebox.showerror("Lỗi", "Không thể chụp màn hình. Hãy đảm bảo Shizuku đang chạy!"))
                     return
 
-                # 2. Đọc ảnh chụp màn hình và ảnh mẫu cần tìm
+                # Đọc ảnh màn hình và ảnh mẫu
                 screen = cv2.imread(screenshot_path)
                 template_file = "template.png"
                 
                 if not os.path.exists(template_file):
-                    self.log("[VISION ERROR] Không tìm thấy file 'template.png' trong thư mục!")
+                    self.log("[VISION ERROR] Không tìm thấy file 'template.png'!")
                     self.root.after(0, lambda: messagebox.showwarning("Thiếu ảnh mẫu", "Vui lòng đặt file ảnh cần tìm tên là 'template.png' cùng thư mục!"))
                     return
 
                 template = cv2.imread(template_file)
                 
-                # 3. Khớp ảnh bằng OpenCV Template Matching
+                # Khớp ảnh OpenCV
                 result = cv2.matchTemplate(screen, template, cv2.TM_CCOEFF_NORMED)
                 min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
                 
-                # Ngưỡng nhận diện chính xác (80% trở lên)
                 threshold = 0.80
-                
                 if max_val >= threshold:
                     h, w, _ = template.shape
                     center_x = max_loc[0] + w // 2
                     center_y = max_loc[1] + h // 2
                     
-                    self.log(f"[VISION] Đã tìm thấy! Tọa độ: X={center_x}, Y={center_y} (Độ khớp: {max_val*100:.1f}%)")
+                    self.log(f"[VISION] Tìm thấy mục tiêu tại X={center_x}, Y={center_y} (Độ khớp: {max_val*100:.1f}%)")
                     
-                    # 4. Thực hiện lệnh tap tại tọa độ tìm thấy
-                    subprocess.run(f"input tap {center_x} {center_y}", shell=True)
+                    # Dùng rish để click chuẩn xác
+                    cmd_click = f"{RISH_PATH} -c 'input tap {center_x} {center_y}'"
+                    subprocess.run(cmd_click, shell=True)
+                    
                     self.root.after(0, lambda: messagebox.showinfo("Thành công", f"Tìm thấy ảnh và click tại ({center_x}, {center_y})!"))
                 else:
-                    self.log(f"[VISION] Không tìm thấy ảnh mục tiêu trên màn hình (Độ khớp cao nhất: {max_val*100:.1f}%).")
+                    self.log(f"[VISION] Không tìm thấy ảnh mục tiêu (Khớp cao nhất: {max_val*100:.1f}%)")
                     self.root.after(0, lambda: messagebox.showinfo("Kết quả", f"Không tìm thấy ảnh mẫu trên màn hình (Khớp: {max_val*100:.1f}%)!"))
                     
             except Exception as e:
