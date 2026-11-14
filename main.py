@@ -253,14 +253,15 @@ def show_login():
                 if email.lower() == ADMIN_EMAIL.lower():
                     show_admin_dashboard(email)
                 else:
-                    messagebox.showinfo("Thành công", f"Đăng nhập thành công!\nĐang đồng bộ từ máy chủ...")
+                    messagebox.showinfo("Thành công", f"Đăng nhập thành công!\nĐang đồng bộ code mới từ máy chủ...")
                     root.destroy()
+                    # Sau khi đồng bộ xong, hệ thống sẽ khởi động lại và mở giao diện Đăng Nhập (main.py)
                     subprocess.run([
                         sys.executable, "-c",
                         "import urllib.request, os, sys;"
                         "base = 'https://raw.githubusercontent.com/huyxaa00-eng/my_project/main/';"
                         "[open(f, 'w', encoding='utf-8').write(urllib.request.urlopen(base + f).read().decode('utf-8')) for f in ['main.py', 'Trangchu.py']];"
-                        "os.execv(sys.executable, [sys.executable, 'Trangchu.py'])"
+                        "os.execv(sys.executable, [sys.executable, 'main.py'])"
                     ])
             else:
                 messagebox.showerror("Lỗi", "Sai tài khoản hoặc mật khẩu")
