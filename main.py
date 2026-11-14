@@ -1,3 +1,4 @@
+cat << 'EOF' > main.py
 import tkinter as tk
 from tkinter import messagebox, ttk
 import urllib.request
@@ -16,8 +17,9 @@ ADMIN_EMAIL = "admin@gmail.com"
 DEFAULT_TRIAL_HOURS = 0
 DEFAULT_TRIAL_DAYS = 3
 
-GITHUB_RAW_URL = "https://raw.githubusercontent.com/huyxaa00-eng/my_project/main/main.py"
+GITHUB_BASE_URL = "https://raw.githubusercontent.com/huyxaa00-eng/my_project/main/"
 LOCAL_SCRIPT_NAME = "main.py"
+HOME_SCRIPT_NAME = "Trangchu.py"
 
 def supabase_request(endpoint, method="GET", data=None, query_params=""):
     url = f"{SUPABASE_URL}/rest/v1/{endpoint}{query_params}"
@@ -50,13 +52,12 @@ def clear_window():
     for widget in root.winfo_children():
         widget.destroy()
 
-# --- HÀM TỰ ĐỘNG CẬP NHẬT KÈM HIỂN THỊ % TẢI VỀ KHI KHỞI ĐỘNG ---
+# --- HÀM TỰ ĐỘNG CẬP NHẬT CẢ 2 FILE & CHUYỂN QUA TRANG CHỦ ---
 def check_and_auto_update():
     clear_window()
     
     tk.Label(root, text="🔄 Đang kiểm tra cập nhật...", font=("Arial", 16, "bold"), fg="white", bg="#667EEA").pack(pady=(150, 10))
     
-    # Đã sửa lại thông báo theo yêu cầu của bạn
     status_lbl = tk.Label(root, text="Đang kết nối tới máy chủ...", font=("Arial", 11), fg="#E0E0E0", bg="#667EEA")
     status_lbl.pack(pady=(0, 20))
 
@@ -68,32 +69,28 @@ def check_and_auto_update():
 
     def run_download():
         try:
-            req = urllib.request.urlopen(GITHUB_RAW_URL, timeout=5)
-            total_size = int(req.headers.get('Content-Length', 0))
-            downloaded = 0
-            chunk_size = 8192
-            buffer = bytearray()
-
-            while True:
-                chunk = req.read(chunk_size)
-                if not chunk:
-                    break
-                buffer.extend(chunk)
-                downloaded += len(chunk)
-                
-                if total_size > 0:
-                    percent = int((downloaded / total_size) * 100)
-                    progress['value'] = percent
-                    percent_lbl.config(text=f"{percent}%")
-                    status_lbl.config(text=f"Đã tải: {downloaded // 1024} KB / {total_size // 1024} KB")
-                    root.update_idletasks()
-
-            with open(LOCAL_SCRIPT_NAME, "wb") as f:
-                f.write(buffer)
+            files_to_sync = [LOCAL_SCRIPT_NAME, HOME_SCRIPT_NAME]
+            total_files = len(files_to_sync)
             
-            status_lbl.config(text="✅ Cập nhật thành công! Đang khởi động lại...")
+            for index, filename in enumerate(files_to_sync):
+                url = GITHUB_BASE_URL + filename
+                status_lbl.config(text=f"Đang tải {filename}...")
+                root.update_idletasks()
+                
+                req = urllib.request.urlopen(url, timeout=5)
+                file_data = req.read()
+                
+                with open(filename, "wb") as f:
+                    f.write(file_data)
+                
+                # Cập nhật % tiến trình theo số lượng file đã tải xong
+                percent = int(((index + 1) / total_files) * 100)
+                progress['value'] = percent
+                percent_lbl.config(text=f"{percent}%")
+            
+            status_lbl.config(text="✅ Cập nhật thành công! Đang mở Trang Chủ...")
             root.update()
-            root.after(1000, lambda: restart_app())
+            root.after(1000, lambda: launch_home_page())
 
         except Exception as e:
             status_lbl.config(text="⚠️ Lỗi kết nối mạng, đang dùng bản cục bộ...")
@@ -102,9 +99,13 @@ def check_and_auto_update():
 
     root.after(500, run_download)
 
-def restart_app():
+def launch_home_page():
     root.destroy()
-    os.execv(sys.executable, [sys.executable, LOCAL_SCRIPT_NAME])
+    # Chuyển sang chạy file Trangchu.py sau khi cập nhật thành công
+    if os.path.exists(HOME_SCRIPT_NAME):
+        os.execv(sys.executable, [sys.executable, HOME_SCRIPT_NAME])
+    else:
+        os.execv(sys.executable, [sys.executable, LOCAL_SCRIPT_NAME])
 
 # --- GIAO DIỆN QUẢN TRỊ VIÊN ---
 def show_admin_dashboard(admin_email):
@@ -341,14 +342,14 @@ def show_login():
                 else:
                     messagebox.showinfo("Thành công", f"Đăng nhập thành công!\nXin chào: {email}")
                     
-                    # Đóng giao diện hiện tại và tự động đồng bộ/chạy file mới nhất từ GitHub
+                    # Đăng nhập thành công sẽ tự động đồng bộ cả 2 file và mở Trangchu.py
                     root.destroy()
                     subprocess.run([
                         sys.executable, "-c",
                         "import urllib.request, os, sys;"
                         "base = 'https://raw.githubusercontent.com/huyxaa00-eng/my_project/main/';"
                         "[open(f, 'w', encoding='utf-8').write(urllib.request.urlopen(base + f).read().decode('utf-8')) for f in ['main.py', 'Trangchu.py']];"
-                        "os.execv(sys.executable, [sys.executable, 'main.py'])"
+                        "os.execv(sys.executable, [sys.executable, 'Trangchu.py'])"
                     ])
             else:
                 messagebox.showerror("Lỗi", "Sai tài khoản hoặc mật khẩu")
@@ -414,6 +415,7 @@ def show_register():
     tk.Label(back_frame, text="Đã có tài khoản? ", fg="#E0E0E0", bg="#667EEA", font=("Arial", 10)).pack(side="left")
     tk.Button(back_frame, text="Đăng nhập", command=show_login, fg="white", bg="#667EEA", font=("Arial", 10, "bold"), bd=0, cursor="hand2").pack(side="left")
 
-# Khởi động ứng dụng, tự động kiểm tra % update trước tiên
+# Khởi động ứng dụng, tự động kiểm tra cập nhật cả main.py và Trangchu.py từ máy chủ trước tiên
 check_and_auto_update()
 root.mainloop()
+EOF
