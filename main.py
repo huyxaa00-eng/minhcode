@@ -44,93 +44,191 @@ RISH_PATH = "/data/data/com.termux/files/home/.config/rish/rish"
 
 # Biến trạng thái toàn cục cho Auto Macro
 is_macro_running = False
-macro_logs = ["[INFO] Web App Vision Macro đã khởi động sẵn sàng!"]
+macro_logs = ["[INFO] Web App Vision Macro (Giao diện Chat) đã khởi động sẵn sàng!"]
 
 def log_msg(msg):
     global macro_logs
     print(msg)
-    macro_logs.append(f"> {msg}")
+    macro_logs.append(f"{msg}")
     if len(macro_logs) > 50:
         macro_logs.pop(0)
 
-# --- GIAO DIỆN WEB HTML (Giao diện Mobile-First, Đen huyền ảo Cyberpunk) ---
+# --- GIAO DIỆN WEB HTML (Giao diện Chat kiểu Zalo/Cyberpunk) ---
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vision Macro Web Pro</title>
+    <title>Vision Macro Chat Bot</title>
     <style>
-        body { background-color: #121212; color: #00ffcc; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 10px; }
-        h1 { font-size: 18px; text-align: center; color: #00ffcc; margin-bottom: 10px; }
-        .card { background: #1e1e1e; border-radius: 8px; padding: 10px; margin-bottom: 10px; border: 1px solid #333; }
-        label { font-size: 12px; color: #ccc; display: block; margin-top: 5px; }
-        select, input, button { width: 100%; padding: 8px; margin-top: 4px; background: #2b2b2b; color: #fff; border: 1px solid #444; border-radius: 4px; font-size: 13px; box-sizing: border-box; }
-        button { font-weight: bold; cursor: pointer; border: none; margin-top: 8px; }
-        .btn-run { background: #00ACC1; color: white; }
-        .btn-stop { background: #D32F2F; color: white; }
-        .btn-gh { background: #3949AB; color: white; }
-        .btn-token { background: #607D8B; color: white; }
-        table { width: 100%; font-size: 12px; margin-top: 5px; border-collapse: collapse; }
-        th, td { border: 1px solid #444; padding: 6px; text-align: left; }
-        th { background: #252525; color: #FFD700; }
-        #logs { background: #0a0a0a; color: #00FF00; font-family: monospace; font-size: 11px; padding: 8px; height: 120px; overflow-y: scroll; border-radius: 4px; border: 1px solid #333; }
-        .row { display: flex; gap: 5px; }
+        * { box-sizing: border-box; }
+        body { 
+            background-color: #121212; 
+            color: #e0e0e0; 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+            margin: 0; 
+            padding: 0; 
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        /* Header kiểu Chat App */
+        header {
+            background: #1e1e1e;
+            padding: 12px 16px;
+            border-bottom: 1px solid #333;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        header h1 { font-size: 16px; margin: 0; color: #00ffcc; display: flex; align-items: center; gap: 8px; }
+        .header-actions button {
+            background: #2b2b2b;
+            color: #00ffcc;
+            border: 1px solid #444;
+            padding: 6px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+        
+        /* Khu vực hiển thị tin nhắn (Chat Container) */
+        #chat-container {
+            flex: 1;
+            padding: 16px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            background: #181818;
+        }
+        .message {
+            max-width: 85%;
+            padding: 10px 14px;
+            border-radius: 12px;
+            font-size: 13px;
+            line-height: 1.4;
+            word-break: break-word;
+            font-family: monospace;
+        }
+        .message.system {
+            background: #252525;
+            color: #00ffcc;
+            align-self: flex-start;
+            border-left: 3px solid #00ffcc;
+        }
+        .message.user {
+            background: #00695c;
+            color: #ffffff;
+            align-self: flex-end;
+            border-bottom-right-radius: 2px;
+        }
+        .message.info {
+            background: #1e293b;
+            color: #38bdf8;
+            align-self: flex-start;
+            border-left: 3px solid #38bdf8;
+        }
+
+        /* Thanh điều khiển / Gửi lệnh ở dưới */
+        .control-panel {
+            background: #1e1e1e;
+            padding: 12px;
+            border-top: 1px solid #333;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .row { display: flex; gap: 8px; }
+        select, input, button { 
+            padding: 8px 12px; 
+            background: #2b2b2b; 
+            color: #fff; 
+            border: 1px solid #444; 
+            border-radius: 6px; 
+            font-size: 13px; 
+        }
         .col { flex: 1; }
+        button { font-weight: bold; cursor: pointer; border: none; transition: opacity 0.2s; }
+        button:active { opacity: 0.8; }
+        
+        .btn-run { background: #00acc1; color: white; }
+        .btn-stop { background: #d32f2f; color: white; }
+        .btn-action { background: #3949ab; color: white; }
     </style>
 </head>
 <body>
-    <h1>🤖 VISION MACRO WEB PRO</h1>
 
-    <!-- 1. CHỌN APP & TOKEN -->
-    <div class="card">
-        <label>📱 Chọn App Mục Tiêu:</label>
-        <div class="row">
-            <select id="target_app" class="col">
-                <option value="Toàn bộ màn hình">Toàn bộ màn hình</option>
-            </select>
-            <button class="btn-token col" onclick="openTokenModal()" style="max-width: 100px;">🔑 Token</button>
+    <!-- THANH TIÊU ĐỀ -->
+    <header>
+        <h1>🤖 Vision Macro Bot</h1>
+        <div class="header-actions">
+            <button onclick="openTokenModal()">🔑 Token</button>
+            <button onclick="openGithubManager()">📂 GitHub</button>
         </div>
-        <button class="btn-gh" onclick="openGithubManager()" style="margin-top: 8px;">📂 Quản lý & Xóa File GitHub</button>
+    </header>
+
+    <!-- KHUNG CHAT HIỂN THỊ NHẬT KÝ -->
+    <div id="chat-container">
+        <!-- Tin nhắn sẽ được cập nhật tự động ở đây -->
     </div>
 
-    <!-- 2. ĐIỀU KHIỂN CHÍNH -->
-    <div class="card">
-        <label>⚡ Cấu Hình & Điều Khiển Macro:</label>
+    <!-- BẢNG ĐIỀU KHIỂN & CẤU HÌNH -->
+    <div class="control-panel">
         <div class="row">
             <div class="col">
-                <label>Độ khớp (%):</label>
+                <label style="font-size:10px; color:#aaa; display:block; margin-bottom:2px;">App mục tiêu:</label>
+                <select id="target_app">
+                    <option value="Toàn bộ màn hình">Toàn bộ màn hình</option>
+                </select>
+            </div>
+            <div style="width: 80px;">
+                <label style="font-size:10px; color:#aaa; display:block; margin-bottom:2px;">Độ khớp(%):</label>
                 <input type="number" id="thresh" value="80" min="50" max="99">
             </div>
-            <div class="col">
-                <label>Vòng lặp:</label>
+            <div style="width: 70px;">
+                <label style="font-size:10px; color:#aaa; display:block; margin-bottom:2px;">Vòng lặp:</label>
                 <input type="number" id="loops" value="1" min="1" max="1000">
             </div>
         </div>
         <div class="row">
-            <button class="btn-run col" onclick="startMacro()">▶ BẮT ĐẦU AUTO</button>
-            <button class="btn-stop col" onclick="stopMacro()">⏹ DỪNG AUTO</button>
+            <button class="btn-run col" onclick="startMacro()">▶ Bắt đầu Auto</button>
+            <button class="btn-stop col" onclick="stopMacro()">⏹ Dừng</button>
         </div>
     </div>
 
-    <!-- 3. NHẬT KÝ (LOGS) -->
-    <div class="card">
-        <label>📋 Nhật Ký Hoạt Động:</label>
-        <div id="logs">Đang tải nhật ký...</div>
-    </div>
-
     <script>
+        let lastLogLength = 0;
+
         function fetchLogs() {
             fetch('/get_logs')
             .then(res => res.json())
             .then(data => {
-                const logBox = document.getElementById('logs');
-                logBox.innerHTML = data.logs.join('<br>');
-                logBox.scrollTop = logBox.scrollHeight;
+                const container = document.getElementById('chat-container');
+                
+                // Chỉ render lại nếu có log mới để tiết kiệm tài nguyên
+                if (data.logs.length !== lastLogLength) {
+                    container.innerHTML = '';
+                    data.logs.forEach(log => {
+                        let div = document.createElement('div');
+                        div.className = 'message system';
+                        
+                        if (log.includes("▶") || log.includes("Bắt đầu")) {
+                            div.className = 'message info';
+                        } else if (log.includes("✨") || log.includes("Tìm thấy")) {
+                            div.className = 'message user';
+                        }
+                        
+                        div.textContent = log;
+                        container.appendChild(div);
+                    });
+                    container.scrollTop = container.scrollHeight;
+                    lastLogLength = data.logs.length;
+                }
             });
         }
-        setInterval(fetchLogs, 1500);
+        setInterval(fetchLogs, 1000);
 
         function startMacro() {
             const app = document.getElementById('target_app').value;
@@ -141,12 +239,16 @@ HTML_TEMPLATE = """
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({app: app, thresh: thresh, loops: loops})
-            }).then(res => res.json()).then(data => alert(data.message));
+            }).then(res => res.json()).then(data => {
+                console.log(data.message);
+            });
         }
 
         function stopMacro() {
             fetch('/stop_macro', {method: 'POST'})
-            .then(res => res.json()).then(data => alert(data.message));
+            .then(res => res.json()).then(data => {
+                console.log(data.message);
+            });
         }
 
         function openTokenModal() {
@@ -158,7 +260,6 @@ HTML_TEMPLATE = """
                     body: JSON.stringify({token: token})
                 }).then(res => res.json()).then(data => {
                     alert(data.message);
-                    location.reload();
                 });
             }
         }
@@ -221,6 +322,7 @@ def update_token():
         cfg["GITHUB_TOKEN"] = new_token
         save_config(cfg)
         GITHUB_TOKEN = new_token
+        log_msg("🔑 Đã cập nhật Token GitHub thành công!")
         return jsonify({"message": "Đã cập nhật Token thành công!"})
     return jsonify({"message": "Token không hợp lệ!"}), 400
 
@@ -228,7 +330,7 @@ def update_token():
 def api_stop_macro():
     global is_macro_running
     is_macro_running = False
-    log_msg("⏹ Đã gửi tín hiệu dừng khẩn cấp từ Web!")
+    log_msg("⏹ Đã gửi tín hiệu dừng khẩn cấp từ giao diện Chat!")
     return jsonify({"message": "Đã dừng Auto!"})
 
 @app.route('/start_macro', methods=['POST'])
@@ -255,7 +357,7 @@ def api_start_macro():
                 subprocess.run(f"{RISH_PATH} -c 'am start -n {selected_app}/.MainActivity' 2>/dev/null", shell=True)
                 time.sleep(1.5)
 
-            # Ví dụ kịch bản quét ảnh mẫu template.png có sẵn
+            # Kịch bản quét ảnh mẫu template.png
             for l in range(1, loops + 1):
                 if not is_macro_running: break
                 screen_path = "/sdcard/screen.png"
@@ -291,7 +393,7 @@ def api_start_macro():
 
 @app.route('/github_manager')
 def github_manager():
-    # Giao diện quản lý file GitHub trực tiếp trên web
+    # Giao diện quản lý file GitHub dạng danh sách gọn gàng
     return """
     <!DOCTYPE html>
     <html lang="vi">
@@ -302,9 +404,9 @@ def github_manager():
             body { background: #121212; color: #00ffcc; font-family: monospace; padding: 15px; }
             h2 { color: #FFD700; font-size: 16px; }
             ul { list-style: none; padding: 0; }
-            li { background: #1e1e1e; margin: 5px 0; padding: 8px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #333; }
-            button { background: #D32F2F; color: white; border: none; padding: 5px 10px; cursor: pointer; border-radius: 3px; }
-            .back { background: #444; margin-top: 15px; width: 100%; padding: 10px; font-weight: bold; color: white; border: none; }
+            li { background: #1e1e1e; margin: 5px 0; padding: 8px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #333; border-radius: 4px; }
+            button { background: #D32F2F; color: white; border: none; padding: 5px 10px; cursor: pointer; border-radius: 3px; font-weight: bold; }
+            .back { background: #444; margin-top: 15px; width: 100%; padding: 10px; font-weight: bold; color: white; border: none; border-radius: 4px; cursor: pointer; }
         </style>
     </head>
     <body>
@@ -374,6 +476,7 @@ def api_gh_delete():
         payload = {"message": f"Xóa file {filename} qua Web", "sha": sha}
         res = requests.delete(url, headers=headers, json=payload)
         if res.status_code in [200, 204]:
+            log_msg(f"🗑 Đã xóa file '{filename}' trên GitHub thành công!")
             return jsonify({"message": f"Đã xóa file '{filename}' thành công!"})
     except Exception as e:
         pass
