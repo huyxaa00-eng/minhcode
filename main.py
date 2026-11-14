@@ -56,7 +56,8 @@ def check_and_auto_update():
     
     tk.Label(root, text="🔄 Đang kiểm tra cập nhật...", font=("Arial", 16, "bold"), fg="white", bg="#667EEA").pack(pady=(150, 10))
     
-    status_lbl = tk.Label(root, text="Đang kết nối tới GitHub...", font=("Arial", 11), fg="#E0E0E0", bg="#667EEA")
+    # Đã sửa lại thông báo theo yêu cầu của bạn
+    status_lbl = tk.Label(root, text="Đang kết nối tới máy chủ...", font=("Arial", 11), fg="#E0E0E0", bg="#667EEA")
     status_lbl.pack(pady=(0, 20))
 
     progress = ttk.Progressbar(root, orient="horizontal", length=300, mode="determinate")
@@ -340,7 +341,7 @@ def show_login():
                 else:
                     messagebox.showinfo("Thành công", f"Đăng nhập thành công!\nXin chào: {email}")
                     
-                    # Đóng giao diện đăng nhập hiện tại và tự động đồng bộ/chạy file mới nhất từ GitHub
+                    # Đóng giao diện hiện tại và tự động đồng bộ/chạy file mới nhất từ GitHub
                     root.destroy()
                     subprocess.run([
                         sys.executable, "-c",
@@ -416,4 +417,3 @@ def show_register():
 # Khởi động ứng dụng, tự động kiểm tra % update trước tiên
 check_and_auto_update()
 root.mainloop()
-EOF
