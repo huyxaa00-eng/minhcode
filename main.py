@@ -1,4 +1,3 @@
-cat << 'EOF' > main.py
 import tkinter as tk
 from tkinter import messagebox, ttk
 import urllib.request
@@ -418,4 +417,3 @@ def show_register():
 # Khởi động ứng dụng, tự động kiểm tra cập nhật cả main.py và Trangchu.py từ máy chủ trước tiên
 check_and_auto_update()
 root.mainloop()
-EOF
